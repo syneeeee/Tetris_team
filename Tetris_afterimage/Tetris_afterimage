@@ -1,0 +1,174 @@
+// 작성일시: 2024년 4월 21일
+// 작성자: 오한빈
+
+
+Tetris_afterimage
+
+기능: mode1(일반적인 테트리스)를 플레이할 때, ACTIVE_BLOCK으로 처리된 떨어지고 있는 블록이 그대로 떨어졌을 때(hard_drop, space), 어디에 떨어질지 미리 알려줌.
+
+1. main_org에 저장될 afterimage의 상태
+#define AFTERIMAGE -3
+
+2. main_org 값을 출력하는 방법
+draw_main(void) 안의 switch-case 문에 afterimage를 그릴 case를 추가함.
+
+// 추가한 부분
+case AFTERIMAGE:
+    printf("░");
+    break;
+
+// 수정본
+void draw_main(void) { //게임판 그리는 함수 
+    int i, j;
+
+    for (j = 1; j < MAIN_X - 1; j++) { //천장은 계속 새로운블럭이 지나가서 지워지면 새로 그려줌 
+        if (main_org[3][j] == EMPTY) main_org[3][j] = CEILLING;
+    }
+    for (i = 0; i < MAIN_Y; i++) {
+        for (j = 0; j < MAIN_X; j++) {
+            if (main_cpy[i][j] != main_org[i][j]) { //cpy랑 비교해서 값이 달라진 부분만 새로 그려줌.
+                //이게 없으면 게임판전체를 계속 그려서 느려지고 반짝거림
+                gotoxy(MAIN_X_ADJ + j, MAIN_Y_ADJ + i);
+                switch (main_org[i][j]) {
+                case EMPTY: //빈칸모양 
+                    printf("  ");
+                    break;
+                case CEILLING: //천장모양 
+                    printf(". ");
+                    break;
+                case WALL: //벽모양 
+                    printf("▩");
+                    break;
+                case INACTIVE_BLOCK: //굳은 블럭 모양  
+                    printf("□");
+                    break;
+                case ACTIVE_BLOCK: //움직이고있는 블럭 모양  
+                    printf("■");
+                    break;
+                case AFTERIMAGE:
+                    printf("░");
+                    break;
+                }
+            }
+        }
+    }
+    for (i = 0; i < MAIN_Y; i++) { //게임판을 그린 후 main_cpy에 복사  
+        for (j = 0; j < MAIN_X; j++) {
+            main_cpy[i][j] = main_org[i][j];
+        }
+    }
+}
+
+
+3. main_org에 afterimage를 그리는 함수를 추가함.
+
+check_crush 함수가 ACTIVE_BLOCK을 기준으로 검사하는 것을 이용해 충돌이 일어날 때까지 y값을 증가시킨다,
+-> 가능한 맨 밑까지 내려가므로 hard_drop 했을 때의 상태와 같게 된다.
+
+그렇게 정한 위치를 토대로 AFTERIMAGE를 그리는데, ACTIVE_BLOCK과 AFTERIMAGE가 겹치면 안되므로 if문을 추가함.
+
+int ai_bx;
+int ai_by;
+void make_afterimage(void) {
+    ai_bx = bx;
+    ai_by = by;
+    while (check_crush(ai_bx, ai_by, b_rotation) == true) {
+        ai_by++;
+    }
+    ai_by--;
+    int i, j;
+    for (i = 0; i < 4; i++) {
+        for (j = 0; j < 4; j++) {
+            if (main_org[ai_by + i][ai_bx + j] != -2 && blocks[b_type][b_rotation][i][j] == 1) {
+                main_org[ai_by + i][ai_bx + j] = -3;
+            }
+        }
+    }
+}
+
+4. main 함수에 afterimage를 구하고, 그리는 부분을 추가함.
+
+check_key(); //키입력확인 
+make_afterimage();
+draw_main(); //화면을 그림 
+
+int main() {
+    SetConsoleOutputCP(65001);
+    int i;
+
+    srand((unsigned)time(NULL)); //난수표생성 
+    setcursortype(NOCURSOR); //커서 없앰 
+    title(); //메인타이틀 호출 
+    reset(); //게임판 리셋 
+
+    while (1) {
+        for (i = 0; i < 5; i++) { //블록이 한칸떨어지는동안 5번 키입력받을 수 있음 
+            check_key(); //키입력확인 
+            make_afterimage();
+            draw_main(); //화면을 그림 
+            Sleep(speed); //게임속도조절 
+            if (crush_on && check_crush(bx, by + 1, b_rotation) == false) Sleep(100);
+            //블록이 충돌중인경우 추가로 이동및 회전할 시간을 갖음 
+            if (space_key_on == 1) { //스페이스바를 누른경우(hard drop) 추가로 이동및 회전할수 없음 break; 
+                space_key_on = 0;
+                break;
+            }
+        }
+        drop_block(); // 블록을 한칸 내림 
+        check_level_up(); // 레벨업을 체크 
+        check_game_over(); //게임오버를 체크 
+        if (new_block_on == 1) new_block(); // 뉴 블럭 flag가 있는 경우 새로운 블럭 생성 
+    }
+}
+
+
+5. key 입력에 따라 afterimage의 위치가 바뀌므로 다음 key 입력 전에 afterimage를 지우는 함수를 추가한다.
+
+void delete_afterimage(void) {
+    int i, j;
+    for (i = 0; i < MAIN_Y; i++) {
+        for (j = 0; j < MAIN_X; j++) {
+            if (main_org[i][j] == -3) {
+                main_org[i][j] = 0;
+            }
+        }
+    }
+}
+
+
+6. main 함수에 적용한다.
+
+check_key(); //키입력확인 
+make_afterimage();
+draw_main(); //화면을 그림 
+delete_afterimage();
+
+int main() {
+    SetConsoleOutputCP(65001);
+    int i;
+
+    srand((unsigned)time(NULL)); //난수표생성 
+    setcursortype(NOCURSOR); //커서 없앰 
+    title(); //메인타이틀 호출 
+    reset(); //게임판 리셋 
+
+    while (1) {
+        for (i = 0; i < 5; i++) { //블록이 한칸떨어지는동안 5번 키입력받을 수 있음 
+            check_key(); //키입력확인 
+            make_afterimage();
+            draw_main(); //화면을 그림 
+            delete_afterimage();
+            Sleep(speed); //게임속도조절 
+            if (crush_on && check_crush(bx, by + 1, b_rotation) == false) Sleep(100);
+            //블록이 충돌중인경우 추가로 이동및 회전할 시간을 갖음 
+            if (space_key_on == 1) { //스페이스바를 누른경우(hard drop) 추가로 이동및 회전할수 없음 break; 
+                space_key_on = 0;
+                break;
+            }
+        }
+        drop_block(); // 블록을 한칸 내림 
+        check_level_up(); // 레벨업을 체크 
+        check_game_over(); //게임오버를 체크 
+        if (new_block_on == 1) new_block(); // 뉴 블럭 flag가 있는 경우 새로운 블럭 생성 
+    }
+}
