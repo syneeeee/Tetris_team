@@ -1,0 +1,30 @@
+#include<stdio.h>
+#include<windows.h>
+
+void textcolor(int color)
+{
+	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
+} //콘솔 텍스트 색상을 변경하는 함수
+
+typedef enum color {
+    DARKPURPLE = 5,
+    GRAY = 8,
+    BLUE = 9,
+    GREEN = 10,
+    AQUA = 11,
+    RED = 12,
+    PURPLE = 13,
+    YELLOW = 14,
+    WHITE = 15
+}COLOR; 
+
+void prtext(char* text, COLOR color)
+{
+    textcolor(color);
+    printf(text);
+    textcolor(WHITE);
+} //문자열을 지정된 색상으로 출력하는 함수
+
+int main() {
+    prtext("hello", RED);
+}
